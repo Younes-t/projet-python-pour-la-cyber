@@ -17,6 +17,8 @@ logging.basicConfig(filename='nids.log', level=logging.INFO)
 
 # Dictionnaire pour stocker le nombre de paquets par minute pour chaque IP
 packet_counts = defaultdict(lambda: defaultdict(int))
+# Dictionnaire pour suivre les paquets SYN
+syn_packets = defaultdict(list)
 
 # Stockage des alertes déclenchées pour éviter les alertes répétitives
 alerts_triggered = defaultdict(bool)
@@ -57,7 +59,7 @@ def signature_based_detection(packet):
             alert_message = f'Tentative de connexion SSH détectée depuis {packet[IP].src}'
             print(f'ALERTE: {alert_message}')
             log_event(alert_message)
-            send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Envoi de l'alerte avec le type approprié
+            #send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Envoi de l'alerte avec le type approprié
 
 # Fonction pour détecter des charges utiles suspectes (fuzzing)
 def detect_fuzzing(packet):
@@ -78,7 +80,7 @@ def detect_fuzzing(packet):
                 )
                 print(f'ALERTE: {alert_message}')
                 log_event(alert_message)
-                send_alert(ip_layer.src, payload_length, "Charge utile suspecte (grande taille)", alert_message)
+                #send_alert(ip_layer.src, payload_length, "Charge utile suspecte (grande taille)", alert_message)
 
             # Vérifier pour des charges utiles répétitives
             unique_bytes = set(payload)
@@ -89,7 +91,7 @@ def detect_fuzzing(packet):
                 )
                 print(f'ALERTE: {alert_message}')
                 log_event(alert_message)
-                send_alert(ip_layer.src, payload_length, "Charge utile répétitive", alert_message)
+                #send_alert(ip_layer.src, payload_length, "Charge utile répétitive", alert_message)
             elif payload_length > 50:
                 # Détection de motifs répétitifs plus subtils
                 repeated_pattern = False
@@ -105,7 +107,43 @@ def detect_fuzzing(packet):
                     )
                     print(f'ALERTE: {alert_message}')
                     log_event(alert_message)
-                    send_alert(ip_layer.src, payload_length, "Motif répétitif détecté", alert_message)
+                    #send_alert(ip_layer.src, payload_length, "Motif répétitif détecté", alert_message)
+
+# Ajoute ou supprime un paquet SYN du dictionnaire en fonction de si il a recu un SYN/ACK ou non
+def detect_syn_scan(packet):
+    # Vérifier si le paquet est un paquet IP
+    if packet.haslayer(IP):
+        ip_layer = packet[IP]
+        
+        # Vérifier si le paquet est un paquet TCP
+        if packet.haslayer(TCP):
+            tcp_layer = packet[TCP]
+            
+            # Vérifier si le paquet TCP est un paquet SYN
+            if tcp_layer.flags == 'S':  # SYN flag is set
+                # Enregistrer le paquet SYN avec l'heure actuelle
+                syn_packets[(ip_layer.src, ip_layer.dst, tcp_layer.sport, tcp_layer.dport)].append(time.time())
+                return
+            
+            # Vérifier si le paquet TCP est un paquet SYN/ACK
+            if tcp_layer.flags == 'SA':  # SYN/ACK flag is set
+                # Si nous recevons un SYN/ACK, nous supprimons le paquet SYN correspondant
+                if (ip_layer.dst, ip_layer.src, tcp_layer.dport, tcp_layer.sport) in syn_packets:
+                    syn_packets[(ip_layer.dst, ip_layer.src, tcp_layer.dport, tcp_layer.sport)].clear()
+                return
+
+# Détermine si un paquet SYN à recu une réponse dans les 5 secondes ou non
+def check_syn_packets():
+    while True:
+        current_time = time.time()
+        for key, timestamps in list(syn_packets.items()):
+            # Vérifier si des paquets SYN n'ont pas reçu de réponse SYN/ACK dans les 5 secondes
+            if timestamps and current_time - timestamps[0] > 5:
+                src_ip, dst_ip, src_port, dst_port = key
+                print(f"Possible SYN scan detected from {src_ip}:{src_port} to {dst_ip}:{dst_port}")
+                del syn_packets[key]
+        #time.sleep(1)  # Vérifier toutes les secondes
+
 
 # Gère les paquets entrants, met à jour les comptes et effectue des détections.
 def packet_handler(packet):
@@ -148,7 +186,7 @@ def check_and_alert():
                 )
                 print(f'ALERTE: {alert_message}')
                 log_event(alert_message)
-                send_alert(ip, packet_counts[ip][current_minute - 1], "Dépassement de seuil de paquets par minute", alert_message)
+                #send_alert(ip, packet_counts[ip][current_minute - 1], "Dépassement de seuil de paquets par minute", alert_message)
                 alerts_triggered[ip] = True
 
 # Fonction principale pour démarrer la capture de paquets et la vérification des alertes.
@@ -157,6 +195,10 @@ def main():
     alert_thread = threading.Thread(target=check_and_alert)
     alert_thread.daemon = True
     alert_thread.start()
+
+    #Démarrer le thread de vérification des initiations TCP
+    syn_thread=threading.Thread(target=check_syn_packets, daemon=True)
+    syn_thread.start()
 
     # Démarrer la capture des paquets (le timeout en secondes peut être ajusté pour augmenter la durée)
     sniff(prn=packet_handler, timeout=600)
