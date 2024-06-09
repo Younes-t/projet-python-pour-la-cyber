@@ -9,36 +9,44 @@ from email.mime.multipart import MIMEMultipart
 import os
 from dotenv import load_dotenv
 
-# Charger les variables d'environnement
+# Load environment variables
 load_dotenv()
 
-# Configuration de base du journal pour enregistrer les événements dans 'nids.log'
+# Basic logging configuration to record events in 'nids.log'
 logging.basicConfig(filename='nids.log', level=logging.INFO)
 
-# Dictionnaire pour stocker le nombre de paquets par minute pour chaque IP
+# Dictionary to store packet counts per minute for each IP
 packet_counts = defaultdict(lambda: defaultdict(int))
-# Dictionnaire pour suivre les paquets SYN
+# Dictionary to track SYN packets
 syn_packets = defaultdict(list)
 
-# Stockage des alertes déclenchées pour éviter les alertes répétitives
+# Store triggered alerts to avoid repetitive alerts
 alerts_triggered = defaultdict(bool)
 
 def send_alert(ip, count, alert_type, details):
-    # Création du message
+    """
+    Send an alert via email.
+
+    :param ip: IP address that triggered the alert
+    :type ip: str
+    :param count: Packet count
+    :type count: int
+    :param alert_type: Type of alert
+    :type alert_type: str
+    :param details: Detailed message for the alert
+    :type details: str
+    """
     msg = MIMEMultipart()
     msg['From'] = os.getenv('EMAIL_EXPEDIT')
-    msg['To'] = 'example@gmail.com' # A changer en fonction de qui test, sinon a en creer une commune
+    msg['To'] = 'example@gmail.com'  # Change based on who is testing, otherwise create a common one
     msg['Subject'] = 'ALERTE NIDS'
 
-    # Corps du message
-    corps = f"{alert_type}:\n{details}"
-    msg.attach(MIMEText(corps, 'plain'))
+    body = f"{alert_type}:\n{details}"
+    msg.attach(MIMEText(body, 'plain'))
 
-    # Paramètres SMTP
     smtp_server = 'smtp.gmail.com'
-    smtp_port = 587  # Port de Gmail pour SMTP TLS
+    smtp_port = 587  # Gmail port for SMTP TLS
 
-    # Envoi de l'e-mail
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as server:
             server.starttls()
@@ -48,31 +56,44 @@ def send_alert(ip, count, alert_type, details):
     except Exception as e:
         print(f"Erreur lors de l'envoi de l'alerte : {e}")
 
-# Enregistre l'événement avec l'heure actuelle.
 def log_event(event):
+    """
+    Log an event with the current time.
+
+    :param event: Event description
+    :type event: str
+    """
     logging.info(f'{time.ctime()}: {event}')
 
-# Effectue une détection basée sur des signatures sur le paquet.
-def signature_based_detection(packet): 
+def signature_based_detection(packet):
+    """
+    Perform signature-based detection on the packet.
+
+    :param packet: Network packet
+    :type packet: scapy.packet.Packet
+    """
     if packet.haslayer(TCP):
-        if packet[TCP].dport == 22:  # Exemple : détection de connexion SSH
+        if packet[TCP].dport == 22:  # Example: SSH connection detection
             alert_message = f'Tentative de connexion SSH détectée depuis {packet[IP].src}'
             print(f'ALERTE: {alert_message}')
             log_event(alert_message)
-            #send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Envoi de l'alerte avec le type approprié
+            #send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Send alert with the appropriate type
 
-# Fonction pour détecter des charges utiles suspectes (fuzzing)
 def detect_fuzzing(packet):
+    """
+    Detect suspicious payloads (fuzzing).
+
+    :param packet: Network packet
+    :type packet: scapy.packet.Packet
+    """
     if IP in packet and TCP in packet:
         ip_layer = packet[IP]
         tcp_layer = packet[TCP]
 
-        # Détecter des charges utiles suspectes
         if Raw in packet:
             payload = packet[Raw].load
             payload_length = len(payload)
 
-            # Vérifier pour des charges utiles de grande taille
             if payload_length > 1000:
                 alert_message = (
                     f"Paquet avec charge utile suspecte (grande taille) détecté : "
@@ -82,9 +103,8 @@ def detect_fuzzing(packet):
                 log_event(alert_message)
                 #send_alert(ip_layer.src, payload_length, "Charge utile suspecte (grande taille)", alert_message)
 
-            # Vérifier pour des charges utiles répétitives
             unique_bytes = set(payload)
-            if len(unique_bytes) == 1:  # Tous les octets sont les mêmes
+            if len(unique_bytes) == 1:
                 alert_message = (
                     f"Paquet avec charge utile répétitive détecté : "
                     f"{ip_layer.src}:{tcp_layer.sport} -> {ip_layer.dst}:{tcp_layer.dport}, Contenu: {payload[:50]}..."
@@ -93,9 +113,8 @@ def detect_fuzzing(packet):
                 log_event(alert_message)
                 #send_alert(ip_layer.src, payload_length, "Charge utile répétitive", alert_message)
             elif payload_length > 50:
-                # Détection de motifs répétitifs plus subtils
                 repeated_pattern = False
-                for i in range(1, 11):  # Vérifie les motifs répétitifs de différentes longueurs
+                for i in range(1, 11):
                     pattern = payload[:i]
                     if pattern * (payload_length // i) == payload[:i * (payload_length // i)]:
                         repeated_pattern = True
@@ -109,44 +128,48 @@ def detect_fuzzing(packet):
                     log_event(alert_message)
                     #send_alert(ip_layer.src, payload_length, "Motif répétitif détecté", alert_message)
 
-# Ajoute ou supprime un paquet SYN du dictionnaire en fonction de si il a recu un SYN/ACK ou non
 def detect_syn_scan(packet):
-    # Vérifier si le paquet est un paquet IP
+    """
+    Add or remove a SYN packet from the dictionary based on whether it received a SYN/ACK or not.
+
+    :param packet: Network packet
+    :type packet: scapy.packet.Packet
+    """
     if packet.haslayer(IP):
         ip_layer = packet[IP]
         
-        # Vérifier si le paquet est un paquet TCP
         if packet.haslayer(TCP):
             tcp_layer = packet[TCP]
             
-            # Vérifier si le paquet TCP est un paquet SYN
             if tcp_layer.flags == 'S':  # SYN flag is set
-                # Enregistrer le paquet SYN avec l'heure actuelle
                 syn_packets[(ip_layer.src, ip_layer.dst, tcp_layer.sport, tcp_layer.dport)].append(time.time())
                 return
             
-            # Vérifier si le paquet TCP est un paquet SYN/ACK
             if tcp_layer.flags == 'SA':  # SYN/ACK flag is set
-                # Si nous recevons un SYN/ACK, nous supprimons le paquet SYN correspondant
                 if (ip_layer.dst, ip_layer.src, tcp_layer.dport, tcp_layer.sport) in syn_packets:
                     syn_packets[(ip_layer.dst, ip_layer.src, tcp_layer.dport, tcp_layer.sport)].clear()
                 return
 
-# Détermine si un paquet SYN à recu une réponse dans les 5 secondes ou non
 def check_syn_packets():
+    """
+    Determine if a SYN packet received a response within 5 seconds.
+    """
     while True:
         current_time = time.time()
         for key, timestamps in list(syn_packets.items()):
-            # Vérifier si des paquets SYN n'ont pas reçu de réponse SYN/ACK dans les 5 secondes
             if timestamps and current_time - timestamps[0] > 5:
                 src_ip, dst_ip, src_port, dst_port = key
                 print(f"Possible SYN scan detected from {src_ip}:{src_port} to {dst_ip}:{dst_port}")
                 del syn_packets[key]
-        #time.sleep(1)  # Vérifier toutes les secondes
+        #time.sleep(1)  # Check every second
 
-
-# Gère les paquets entrants, met à jour les comptes et effectue des détections.
 def packet_handler(packet):
+    """
+    Handle incoming packets, update counts, and perform detections.
+
+    :param packet: Network packet
+    :type packet: scapy.packet.Packet
+    """
     if packet.haslayer(IP):
         src_ip = packet[IP].src
         current_minute = int(time.time() // 60)
@@ -154,8 +177,13 @@ def packet_handler(packet):
         signature_based_detection(packet)
         detect_fuzzing(packet)
 
-# Calcule et retourne le nombre moyen de paquets par minute pour chaque IP.
 def calculate_average_packets_per_minute():
+    """
+    Calculate and return the average number of packets per minute for each IP.
+
+    :return: Dictionary of IP addresses and their average packets per minute
+    :rtype: dict
+    """
     ip_statistics = {}
     for ip, counts in packet_counts.items():
         total_packets = sum(counts.values())
@@ -164,10 +192,12 @@ def calculate_average_packets_per_minute():
         ip_statistics[ip] = average_packets_per_minute
     return ip_statistics
 
-# Vérifie périodiquement les comptes de paquets et déclenche des alertes si les seuils sont dépassés.
 def check_and_alert():
+    """
+    Periodically check packet counts and trigger alerts if thresholds are exceeded.
+    """
     while True:
-        time.sleep(60)  # Attendre une minute avant de vérifier
+        time.sleep(60)  # Wait one minute before checking
         current_minute = int(time.time() // 60)
 
         for ip in packet_counts.keys():
@@ -175,10 +205,9 @@ def check_and_alert():
                 continue
 
             total_packets = sum(packet_counts[ip].values())
-            total_minutes = len(packet_counts[ip]) - 1  # Exclure la minute courante
+            total_minutes = len(packet_counts[ip]) - 1  # Exclude the current minute
             average_packets_per_minute = total_packets / total_minutes if total_minutes > 0 else 0
 
-            # Vérifier si l'IP a dépassé 100 paquets par minute
             if packet_counts[ip][current_minute - 1] > 100 and not alerts_triggered[ip]:
                 alert_message = (
                     f"L'IP {ip} a dépassé 100 paquets par minute avec "
@@ -189,25 +218,23 @@ def check_and_alert():
                 #send_alert(ip, packet_counts[ip][current_minute - 1], "Dépassement de seuil de paquets par minute", alert_message)
                 alerts_triggered[ip] = True
 
-# Fonction principale pour démarrer la capture de paquets et la vérification des alertes.
 def main():
-    # Démarrer le thread de vérification des alertes
+    """
+    Main function to start packet capture and alert checking.
+    """
     alert_thread = threading.Thread(target=check_and_alert)
     alert_thread.daemon = True
     alert_thread.start()
 
-    #Démarrer le thread de vérification des initiations TCP
-    syn_thread=threading.Thread(target=check_syn_packets, daemon=True)
+    syn_thread = threading.Thread(target=check_syn_packets, daemon=True)
     syn_thread.start()
 
-    # Démarrer la capture des paquets (le timeout en secondes peut être ajusté pour augmenter la durée)
     sniff(prn=packet_handler, timeout=600)
 
-    # Calculer et afficher le nombre moyen de paquets par minute pour chaque IP
     ip_stats = calculate_average_packets_per_minute()
     for ip, avg_packets in ip_stats.items():
         print(f'IP {ip}: Nombre moyen de paquets par minute: {avg_packets:.2f}')
-
+        
 # Exécuter le script principal si ce fichier est exécuté directement
 if __name__ == '__main__':
     main()
