@@ -9,40 +9,40 @@ from email.mime.multipart import MIMEMultipart
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
+# Charger les variables d'environnement
 load_dotenv()
 
-# Basic logging configuration to record events in 'nids.log'
+# Configuration de base du journal pour enregistrer les événements dans 'nids.log'
 logging.basicConfig(filename='nids.log', level=logging.INFO)
 
-# Dictionary to store packet counts per minute for each IP
+# Dictionnaire pour stocker les comptes de paquets par minute pour chaque IP
 packet_counts = defaultdict(lambda: defaultdict(int))
-# Dictionary to track SYN packets
+# Dictionnaire pour suivre les paquets SYN
 syn_packets = defaultdict(list)
 
-# Store triggered alerts to avoid repetitive alerts
+# Stocker les alertes déclenchées pour éviter les alertes répétitives
 alerts_triggered = defaultdict(bool)
 
 def send_alert(ip: str, count: int, alert_type: str, details: str):
     """
-    Send an alert via email.
+    Envoyer une alerte par email.
 
     Args:
-        ip (str): IP address that triggered the alert.
-        count (int): Packet count.
-        alert_type (str): Type of alert.
-        details (str): Detailed message for the alert.
+        ip (str): Adresse IP qui a déclenché l'alerte.
+        count (int): Nombre de paquets.
+        alert_type (str): Type d'alerte.
+        details (str): Message détaillé pour l'alerte.
     """
     msg = MIMEMultipart()
     msg['From'] = os.getenv('EMAIL_EXPEDIT')
-    msg['To'] = 'example@gmail.com'  # Change based on who is testing, otherwise create a common one
+    msg['To'] = 'example@gmail.com'  # Modifier en fonction de qui teste, sinon créer un commun
     msg['Subject'] = 'ALERTE NIDS'
 
     body = f"{alert_type}:\n{details}"
     msg.attach(MIMEText(body, 'plain'))
 
     smtp_server = 'smtp.gmail.com'
-    smtp_port = 587  # Gmail port for SMTP TLS
+    smtp_port = 587  # Port Gmail pour SMTP TLS
 
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as server:
@@ -55,33 +55,33 @@ def send_alert(ip: str, count: int, alert_type: str, details: str):
 
 def log_event(event: str):
     """
-    Log an event with the current time.
+    Enregistrer un événement avec l'heure actuelle.
 
     Args:
-        event (str): Event description.
+        event (str): Description de l'événement.
     """
     logging.info(f'{time.ctime()}: {event}')
 
 def signature_based_detection(packet):
     """
-    Perform signature-based detection on the packet.
+    Effectuer une détection basée sur la signature sur le paquet.
 
     Args:
-        packet (scapy.packet.Packet): Network packet.
+        packet (scapy.packet.Packet): Paquet réseau.
     """
     if packet.haslayer(TCP):
-        if packet[TCP].dport == 22:  # Example: SSH connection detection
+        if packet[TCP].dport == 22:  # Exemple : détection de connexion SSH
             alert_message = f'Tentative de connexion SSH détectée depuis {packet[IP].src}'
             print(f'ALERTE: {alert_message}')
             log_event(alert_message)
-            #send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Send alert with the appropriate type
+            #send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Envoyer une alerte avec le type approprié
 
 def detect_fuzzing(packet):
     """
-    Detect suspicious payloads (fuzzing).
+    Détecter les charges utiles suspectes (fuzzing).
 
     Args:
-        packet (scapy.packet.Packet): Network packet.
+        packet (scapy.packet.Packet): Paquet réseau.
     """
     if IP in packet and TCP in packet:
         ip_layer = packet[IP]
@@ -127,10 +127,10 @@ def detect_fuzzing(packet):
 
 def detect_syn_scan(packet):
     """
-    Add or remove a SYN packet from the dictionary based on whether it received a SYN/ACK or not.
+    Ajouter ou supprimer un paquet SYN du dictionnaire en fonction de la réception ou non d'un SYN/ACK.
 
     Args:
-        packet (scapy.packet.Packet): Network packet.
+        packet (scapy.packet.Packet): Paquet réseau.
     """
     if packet.haslayer(IP):
         ip_layer = packet[IP]
@@ -138,34 +138,34 @@ def detect_syn_scan(packet):
         if packet.haslayer(TCP):
             tcp_layer = packet[TCP]
             
-            if tcp_layer.flags == 'S':  # SYN flag is set
+            if tcp_layer.flags == 'S':  # Drapeau SYN est défini
                 syn_packets[(ip_layer.src, ip_layer.dst, tcp_layer.sport, tcp_layer.dport)].append(time.time())
                 return
             
-            if tcp_layer.flags == 'SA':  # SYN/ACK flag is set
+            if tcp_layer.flags == 'SA':  # Drapeau SYN/ACK est défini
                 if (ip_layer.dst, ip_layer.src, tcp_layer.dport, tcp_layer.sport) in syn_packets:
                     syn_packets[(ip_layer.dst, ip_layer.src, tcp_layer.dport, tcp_layer.sport)].clear()
                 return
 
 def check_syn_packets():
     """
-    Determine if a SYN packet received a response within 5 seconds.
+    Déterminer si un paquet SYN a reçu une réponse dans les 5 secondes.
     """
     while True:
         current_time = time.time()
         for key, timestamps in list(syn_packets.items()):
             if timestamps and current_time - timestamps[0] > 5:
                 src_ip, dst_ip, src_port, dst_port = key
-                print(f"Possible SYN scan detected from {src_ip}:{src_port} to {dst_ip}:{dst_port}")
+                print(f"Scan SYN possible détecté de {src_ip}:{src_port} à {dst_ip}:{dst_port}")
                 del syn_packets[key]
-        #time.sleep(1)  # Check every second
+        #time.sleep(1)  # Vérifier toutes les secondes
 
 def packet_handler(packet):
     """
-    Handle incoming packets, update counts, and perform detections.
+    Gérer les paquets entrants, mettre à jour les comptes et effectuer des détections.
 
     Args:
-        packet (scapy.packet.Packet): Network packet.
+        packet (scapy.packet.Packet): Paquet réseau.
     """
     if packet.haslayer(IP):
         src_ip = packet[IP].src
@@ -176,10 +176,10 @@ def packet_handler(packet):
 
 def calculate_average_packets_per_minute() -> dict:
     """
-    Calculate and return the average number of packets per minute for each IP.
+    Calculer et retourner le nombre moyen de paquets par minute pour chaque IP.
 
     Returns:
-        dict: Dictionary of IP addresses and their average packets per minute.
+        dict: Dictionnaire des adresses IP et de leur nombre moyen de paquets par minute.
     """
     ip_statistics = {}
     for ip, counts in packet_counts.items():
@@ -191,10 +191,10 @@ def calculate_average_packets_per_minute() -> dict:
 
 def check_and_alert():
     """
-    Periodically check packet counts and trigger alerts if thresholds are exceeded.
+    Vérifier périodiquement les comptes de paquets et déclencher des alertes si les seuils sont dépassés.
     """
     while True:
-        time.sleep(60)  # Wait one minute before checking
+        time.sleep(60)  # Attendre une minute avant de vérifier
         current_minute = int(time.time() // 60)
 
         for ip in packet_counts.keys():
@@ -202,7 +202,7 @@ def check_and_alert():
                 continue
 
             total_packets = sum(packet_counts[ip].values())
-            total_minutes = len(packet_counts[ip]) - 1  # Exclude the current minute
+            total_minutes = len(packet_counts[ip]) - 1  # Exclure la minute actuelle
             average_packets_per_minute = total_packets / total_minutes if total_minutes > 0 else 0
 
             if packet_counts[ip][current_minute - 1] > 100 and not alerts_triggered[ip]:
@@ -217,7 +217,7 @@ def check_and_alert():
 
 def main():
     """
-    Main function to start packet capture and alert checking.
+    Fonction principale pour démarrer la capture des paquets et la vérification des alertes.
     """
     alert_thread = threading.Thread(target=check_and_alert)
     alert_thread.daemon = True
@@ -227,6 +227,7 @@ def main():
     syn_thread.start()
 
     sniff(prn=packet_handler, timeout=600)
+
 
     ip_stats = calculate_average_packets_per_minute()
     for ip, avg_packets in ip_stats.items():
