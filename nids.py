@@ -115,11 +115,12 @@ def packet_handler(packet):
         with packet_counts_lock:
             packet_counts[src_ip][current_minute] += 1
         signature_based_detection(packet)
+        detect_syn_scan(packet) 
 
 # Vérifie périodiquement les comptes de paquets et déclenche des alertes si les seuils sont dépassés.
 def check_and_alert():
     while True:
-        time.sleep(60)  # Attendre une minute avant de vérifier
+        time.sleep(30)  # Attendre une minute avant de vérifier
         current_minute = int(time.time() // 60)
 
         with packet_counts_lock:

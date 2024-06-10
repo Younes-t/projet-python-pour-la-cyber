@@ -17,7 +17,7 @@ def ssh_bruteforce(ip, port, username, password_list=[
     for password in password_list:
         try:
             client.connect(ip, port, username, password, timeout=3)
-            print(f'Success! Username: {username}, Password: {password}')
+            print(f'Success! Username: {username}, Password: *******')
             client.close()
             return True
         except paramiko.AuthenticationException:
