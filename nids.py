@@ -23,11 +23,16 @@ syn_packets = defaultdict(list)
 # Stockage des alertes déclenchées pour éviter les alertes répétitives
 alerts_triggered = defaultdict(bool)
 
+import os
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 def send_alert(ip, count, alert_type, details):
     # Création du message
     msg = MIMEMultipart()
-    msg['From'] = os.getenv('EMAIL_EXPEDIT')
-    msg['To'] = 'example@gmail.com' # A changer en fonction de qui test, sinon a en creer une commune
+    msg['From'] = os.getenv('EMAIL_EXPEDIT') # Email expéditeur venant des variables d'environnement
+    msg['To'] = 'eliseyounes532@gmail.com' # Remplacer par l'adresse e-mail de destination
     msg['Subject'] = 'ALERTE NIDS'
 
     # Corps du message
@@ -36,13 +41,12 @@ def send_alert(ip, count, alert_type, details):
 
     # Paramètres SMTP
     smtp_server = 'smtp.gmail.com'
-    smtp_port = 587  # Port de Gmail pour SMTP TLS
+    smtp_port_ssl = 465  # Port de Gmail pour SMTP SSL
 
     # Envoi de l'e-mail
     try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(os.getenv('EMAIL_EXPEDIT'), os.getenv('EMAIL_PASS'))
+        with smtplib.SMTP_SSL(smtp_server, smtp_port_ssl) as server:
+            server.login(os.getenv('EMAIL_EXPEDIT'), os.getenv('EMAIL_PASS')) # Email expéditeur et mot de passe venant des variables d'environnement
             server.send_message(msg)
             print(f"Alerte envoyée à {msg['To']} pour {ip}")
     except Exception as e:
@@ -59,55 +63,7 @@ def signature_based_detection(packet):
             alert_message = f'Tentative de connexion SSH détectée depuis {packet[IP].src}'
             print(f'ALERTE: {alert_message}')
             log_event(alert_message)
-            #send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Envoi de l'alerte avec le type approprié
-
-# Fonction pour détecter des charges utiles suspectes (fuzzing)
-def detect_fuzzing(packet):
-    if IP in packet and TCP in packet:
-        ip_layer = packet[IP]
-        tcp_layer = packet[TCP]
-
-        # Détecter des charges utiles suspectes
-        if Raw in packet:
-            payload = packet[Raw].load
-            payload_length = len(payload)
-
-            # Vérifier pour des charges utiles de grande taille
-            if payload_length > 1000:
-                alert_message = (
-                    f"Paquet avec charge utile suspecte (grande taille) détecté : "
-                    f"{ip_layer.src}:{tcp_layer.sport} -> {ip_layer.dst}:{tcp_layer.dport}, Taille: {payload_length}"
-                )
-                print(f'ALERTE: {alert_message}')
-                log_event(alert_message)
-                #send_alert(ip_layer.src, payload_length, "Charge utile suspecte (grande taille)", alert_message)
-
-            # Vérifier pour des charges utiles répétitives
-            unique_bytes = set(payload)
-            if len(unique_bytes) == 1:  # Tous les octets sont les mêmes
-                alert_message = (
-                    f"Paquet avec charge utile répétitive détecté : "
-                    f"{ip_layer.src}:{tcp_layer.sport} -> {ip_layer.dst}:{tcp_layer.dport}, Contenu: {payload[:50]}..."
-                )
-                print(f'ALERTE: {alert_message}')
-                log_event(alert_message)
-                #send_alert(ip_layer.src, payload_length, "Charge utile répétitive", alert_message)
-            elif payload_length > 50:
-                # Détection de motifs répétitifs plus subtils
-                repeated_pattern = False
-                for i in range(1, 11):  # Vérifie les motifs répétitifs de différentes longueurs
-                    pattern = payload[:i]
-                    if pattern * (payload_length // i) == payload[:i * (payload_length // i)]:
-                        repeated_pattern = True
-                        break
-                if repeated_pattern:
-                    alert_message = (
-                        f"Paquet avec motif répétitif détecté : "
-                        f"{ip_layer.src}:{tcp_layer.sport} -> {ip_layer.dst}:{tcp_layer.dport}, Contenu: {payload[:50]}..."
-                    )
-                    print(f'ALERTE: {alert_message}')
-                    log_event(alert_message)
-                    #send_alert(ip_layer.src, payload_length, "Motif répétitif détecté", alert_message)
+            send_alert(packet[IP].src, 1, "Tentative de connexion SSH", alert_message)  # Envoi de l'alerte avec le type approprié
 
 # Ajoute ou supprime un paquet SYN du dictionnaire en fonction de si il a recu un SYN/ACK ou non
 def detect_syn_scan(packet):
@@ -152,17 +108,6 @@ def packet_handler(packet):
         current_minute = int(time.time() // 60)
         packet_counts[src_ip][current_minute] += 1
         signature_based_detection(packet)
-        detect_fuzzing(packet)
-
-# Calcule et retourne le nombre moyen de paquets par minute pour chaque IP.
-def calculate_average_packets_per_minute():
-    ip_statistics = {}
-    for ip, counts in packet_counts.items():
-        total_packets = sum(counts.values())
-        total_minutes = len(counts)
-        average_packets_per_minute = total_packets / total_minutes if total_minutes > 0 else 0
-        ip_statistics[ip] = average_packets_per_minute
-    return ip_statistics
 
 # Vérifie périodiquement les comptes de paquets et déclenche des alertes si les seuils sont dépassés.
 def check_and_alert():
@@ -186,7 +131,7 @@ def check_and_alert():
                 )
                 print(f'ALERTE: {alert_message}')
                 log_event(alert_message)
-                #send_alert(ip, packet_counts[ip][current_minute - 1], "Dépassement de seuil de paquets par minute", alert_message)
+                send_alert(ip, packet_counts[ip][current_minute - 1], "Dépassement de seuil de paquets par minute", alert_message)
                 alerts_triggered[ip] = True
 
 # Fonction principale pour démarrer la capture de paquets et la vérification des alertes.
@@ -202,11 +147,6 @@ def main():
 
     # Démarrer la capture des paquets (le timeout en secondes peut être ajusté pour augmenter la durée)
     sniff(prn=packet_handler, timeout=600)
-
-    # Calculer et afficher le nombre moyen de paquets par minute pour chaque IP
-    ip_stats = calculate_average_packets_per_minute()
-    for ip, avg_packets in ip_stats.items():
-        print(f'IP {ip}: Nombre moyen de paquets par minute: {avg_packets:.2f}')
 
 # Exécuter le script principal si ce fichier est exécuté directement
 if __name__ == '__main__':
