@@ -23,18 +23,15 @@ syn_packets = defaultdict(list)
 # Store triggered alerts to avoid repetitive alerts
 alerts_triggered = defaultdict(bool)
 
-def send_alert(ip, count, alert_type, details):
+def send_alert(ip: str, count: int, alert_type: str, details: str):
     """
     Send an alert via email.
 
-    :param ip: IP address that triggered the alert
-    :type ip: str
-    :param count: Packet count
-    :type count: int
-    :param alert_type: Type of alert
-    :type alert_type: str
-    :param details: Detailed message for the alert
-    :type details: str
+    Args:
+        ip (str): IP address that triggered the alert.
+        count (int): Packet count.
+        alert_type (str): Type of alert.
+        details (str): Detailed message for the alert.
     """
     msg = MIMEMultipart()
     msg['From'] = os.getenv('EMAIL_EXPEDIT')
@@ -56,12 +53,12 @@ def send_alert(ip, count, alert_type, details):
     except Exception as e:
         print(f"Erreur lors de l'envoi de l'alerte : {e}")
 
-def log_event(event):
+def log_event(event: str):
     """
     Log an event with the current time.
 
-    :param event: Event description
-    :type event: str
+    Args:
+        event (str): Event description.
     """
     logging.info(f'{time.ctime()}: {event}')
 
@@ -69,8 +66,8 @@ def signature_based_detection(packet):
     """
     Perform signature-based detection on the packet.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     """
     if packet.haslayer(TCP):
         if packet[TCP].dport == 22:  # Example: SSH connection detection
@@ -83,8 +80,8 @@ def detect_fuzzing(packet):
     """
     Detect suspicious payloads (fuzzing).
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     """
     if IP in packet and TCP in packet:
         ip_layer = packet[IP]
@@ -132,8 +129,8 @@ def detect_syn_scan(packet):
     """
     Add or remove a SYN packet from the dictionary based on whether it received a SYN/ACK or not.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     """
     if packet.haslayer(IP):
         ip_layer = packet[IP]
@@ -167,8 +164,8 @@ def packet_handler(packet):
     """
     Handle incoming packets, update counts, and perform detections.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     """
     if packet.haslayer(IP):
         src_ip = packet[IP].src
@@ -177,12 +174,12 @@ def packet_handler(packet):
         signature_based_detection(packet)
         detect_fuzzing(packet)
 
-def calculate_average_packets_per_minute():
+def calculate_average_packets_per_minute() -> dict:
     """
     Calculate and return the average number of packets per minute for each IP.
 
-    :return: Dictionary of IP addresses and their average packets per minute
-    :rtype: dict
+    Returns:
+        dict: Dictionary of IP addresses and their average packets per minute.
     """
     ip_statistics = {}
     for ip, counts in packet_counts.items():
@@ -234,7 +231,6 @@ def main():
     ip_stats = calculate_average_packets_per_minute()
     for ip, avg_packets in ip_stats.items():
         print(f'IP {ip}: Nombre moyen de paquets par minute: {avg_packets:.2f}')
-        
-# Exécuter le script principal si ce fichier est exécuté directement
+
 if __name__ == '__main__':
-    main()
+   
