@@ -64,10 +64,9 @@ def send_alert(ip, count, alert_type, details):
 def log_event(event):
     logging.info(f'{time.ctime()}: {event}')
 
-# Effectue une détection basée sur des signatures sur le paquet.
 def signature_based_detection(packet): 
     if packet.haslayer(TCP):
-        if packet[TCP].dport == 22:  # Exemple : détection de connexion SSH
+        if packet[TCP].dport == 22 and packet[TCP].flags == 'S':  # SSH connection attempt with SYN flag set
             alert_message = f'Tentative de connexion SSH détectée depuis {packet[IP].src}'
             print(f'ALERTE: {alert_message}')
             log_event(alert_message)
