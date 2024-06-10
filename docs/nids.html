@@ -51,18 +51,15 @@ syn_packets = defaultdict(list)
 # Store triggered alerts to avoid repetitive alerts
 alerts_triggered = defaultdict(bool)
 
-def send_alert(ip, count, alert_type, details):
+def send_alert(ip: str, count: int, alert_type: str, details: str):
     &#34;&#34;&#34;
     Send an alert via email.
 
-    :param ip: IP address that triggered the alert
-    :type ip: str
-    :param count: Packet count
-    :type count: int
-    :param alert_type: Type of alert
-    :type alert_type: str
-    :param details: Detailed message for the alert
-    :type details: str
+    Args:
+        ip (str): IP address that triggered the alert.
+        count (int): Packet count.
+        alert_type (str): Type of alert.
+        details (str): Detailed message for the alert.
     &#34;&#34;&#34;
     msg = MIMEMultipart()
     msg[&#39;From&#39;] = os.getenv(&#39;EMAIL_EXPEDIT&#39;)
@@ -84,12 +81,12 @@ def send_alert(ip, count, alert_type, details):
     except Exception as e:
         print(f&#34;Erreur lors de l&#39;envoi de l&#39;alerte : {e}&#34;)
 
-def log_event(event):
+def log_event(event: str):
     &#34;&#34;&#34;
     Log an event with the current time.
 
-    :param event: Event description
-    :type event: str
+    Args:
+        event (str): Event description.
     &#34;&#34;&#34;
     logging.info(f&#39;{time.ctime()}: {event}&#39;)
 
@@ -97,8 +94,8 @@ def signature_based_detection(packet):
     &#34;&#34;&#34;
     Perform signature-based detection on the packet.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if packet.haslayer(TCP):
         if packet[TCP].dport == 22:  # Example: SSH connection detection
@@ -111,8 +108,8 @@ def detect_fuzzing(packet):
     &#34;&#34;&#34;
     Detect suspicious payloads (fuzzing).
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if IP in packet and TCP in packet:
         ip_layer = packet[IP]
@@ -160,8 +157,8 @@ def detect_syn_scan(packet):
     &#34;&#34;&#34;
     Add or remove a SYN packet from the dictionary based on whether it received a SYN/ACK or not.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if packet.haslayer(IP):
         ip_layer = packet[IP]
@@ -195,8 +192,8 @@ def packet_handler(packet):
     &#34;&#34;&#34;
     Handle incoming packets, update counts, and perform detections.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if packet.haslayer(IP):
         src_ip = packet[IP].src
@@ -205,12 +202,12 @@ def packet_handler(packet):
         signature_based_detection(packet)
         detect_fuzzing(packet)
 
-def calculate_average_packets_per_minute():
+def calculate_average_packets_per_minute() -&gt; dict:
     &#34;&#34;&#34;
     Calculate and return the average number of packets per minute for each IP.
 
-    :return: Dictionary of IP addresses and their average packets per minute
-    :rtype: dict
+    Returns:
+        dict: Dictionary of IP addresses and their average packets per minute.
     &#34;&#34;&#34;
     ip_statistics = {}
     for ip, counts in packet_counts.items():
@@ -262,8 +259,7 @@ def main():
     ip_stats = calculate_average_packets_per_minute()
     for ip, avg_packets in ip_stats.items():
         print(f&#39;IP {ip}: Nombre moyen de paquets par minute: {avg_packets:.2f}&#39;)
-        
-# Exécuter le script principal si ce fichier est exécuté directement
+
 if __name__ == &#39;__main__&#39;:
     main()</code></pre>
 </details>
@@ -276,22 +272,25 @@ if __name__ == &#39;__main__&#39;:
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="nids.calculate_average_packets_per_minute"><code class="name flex">
-<span>def <span class="ident">calculate_average_packets_per_minute</span></span>(<span>)</span>
+<span>def <span class="ident">calculate_average_packets_per_minute</span></span>(<span>) ‑> dict</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate and return the average number of packets per minute for each IP.</p>
-<p>:return: Dictionary of IP addresses and their average packets per minute
-:rtype: dict</p></div>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>dict</code></dt>
+<dd>Dictionary of IP addresses and their average packets per minute.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def calculate_average_packets_per_minute():
+<pre><code class="python">def calculate_average_packets_per_minute() -&gt; dict:
     &#34;&#34;&#34;
     Calculate and return the average number of packets per minute for each IP.
 
-    :return: Dictionary of IP addresses and their average packets per minute
-    :rtype: dict
+    Returns:
+        dict: Dictionary of IP addresses and their average packets per minute.
     &#34;&#34;&#34;
     ip_statistics = {}
     for ip, counts in packet_counts.items():
@@ -366,8 +365,11 @@ if __name__ == &#39;__main__&#39;:
 </code></dt>
 <dd>
 <div class="desc"><p>Detect suspicious payloads (fuzzing).</p>
-<p>:param packet: Network packet
-:type packet: scapy.packet.Packet</p></div>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>packet</code></strong> :&ensp;<code>scapy.packet.Packet</code></dt>
+<dd>Network packet.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -376,8 +378,8 @@ if __name__ == &#39;__main__&#39;:
     &#34;&#34;&#34;
     Detect suspicious payloads (fuzzing).
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if IP in packet and TCP in packet:
         ip_layer = packet[IP]
@@ -427,8 +429,11 @@ if __name__ == &#39;__main__&#39;:
 </code></dt>
 <dd>
 <div class="desc"><p>Add or remove a SYN packet from the dictionary based on whether it received a SYN/ACK or not.</p>
-<p>:param packet: Network packet
-:type packet: scapy.packet.Packet</p></div>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>packet</code></strong> :&ensp;<code>scapy.packet.Packet</code></dt>
+<dd>Network packet.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -437,8 +442,8 @@ if __name__ == &#39;__main__&#39;:
     &#34;&#34;&#34;
     Add or remove a SYN packet from the dictionary based on whether it received a SYN/ACK or not.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if packet.haslayer(IP):
         ip_layer = packet[IP]
@@ -457,22 +462,25 @@ if __name__ == &#39;__main__&#39;:
 </details>
 </dd>
 <dt id="nids.log_event"><code class="name flex">
-<span>def <span class="ident">log_event</span></span>(<span>event)</span>
+<span>def <span class="ident">log_event</span></span>(<span>event: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Log an event with the current time.</p>
-<p>:param event: Event description
-:type event: str</p></div>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>event</code></strong> :&ensp;<code>str</code></dt>
+<dd>Event description.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def log_event(event):
+<pre><code class="python">def log_event(event: str):
     &#34;&#34;&#34;
     Log an event with the current time.
 
-    :param event: Event description
-    :type event: str
+    Args:
+        event (str): Event description.
     &#34;&#34;&#34;
     logging.info(f&#39;{time.ctime()}: {event}&#39;)</code></pre>
 </details>
@@ -509,8 +517,11 @@ if __name__ == &#39;__main__&#39;:
 </code></dt>
 <dd>
 <div class="desc"><p>Handle incoming packets, update counts, and perform detections.</p>
-<p>:param packet: Network packet
-:type packet: scapy.packet.Packet</p></div>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>packet</code></strong> :&ensp;<code>scapy.packet.Packet</code></dt>
+<dd>Network packet.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -519,8 +530,8 @@ if __name__ == &#39;__main__&#39;:
     &#34;&#34;&#34;
     Handle incoming packets, update counts, and perform detections.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if packet.haslayer(IP):
         src_ip = packet[IP].src
@@ -531,34 +542,34 @@ if __name__ == &#39;__main__&#39;:
 </details>
 </dd>
 <dt id="nids.send_alert"><code class="name flex">
-<span>def <span class="ident">send_alert</span></span>(<span>ip, count, alert_type, details)</span>
+<span>def <span class="ident">send_alert</span></span>(<span>ip: str, count: int, alert_type: str, details: str)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Send an alert via email.</p>
-<p>:param ip: IP address that triggered the alert
-:type ip: str
-:param count: Packet count
-:type count: int
-:param alert_type: Type of alert
-:type alert_type: str
-:param details: Detailed message for the alert
-:type details: str</p></div>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>ip</code></strong> :&ensp;<code>str</code></dt>
+<dd>IP address that triggered the alert.</dd>
+<dt><strong><code>count</code></strong> :&ensp;<code>int</code></dt>
+<dd>Packet count.</dd>
+<dt><strong><code>alert_type</code></strong> :&ensp;<code>str</code></dt>
+<dd>Type of alert.</dd>
+<dt><strong><code>details</code></strong> :&ensp;<code>str</code></dt>
+<dd>Detailed message for the alert.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def send_alert(ip, count, alert_type, details):
+<pre><code class="python">def send_alert(ip: str, count: int, alert_type: str, details: str):
     &#34;&#34;&#34;
     Send an alert via email.
 
-    :param ip: IP address that triggered the alert
-    :type ip: str
-    :param count: Packet count
-    :type count: int
-    :param alert_type: Type of alert
-    :type alert_type: str
-    :param details: Detailed message for the alert
-    :type details: str
+    Args:
+        ip (str): IP address that triggered the alert.
+        count (int): Packet count.
+        alert_type (str): Type of alert.
+        details (str): Detailed message for the alert.
     &#34;&#34;&#34;
     msg = MIMEMultipart()
     msg[&#39;From&#39;] = os.getenv(&#39;EMAIL_EXPEDIT&#39;)
@@ -586,8 +597,11 @@ if __name__ == &#39;__main__&#39;:
 </code></dt>
 <dd>
 <div class="desc"><p>Perform signature-based detection on the packet.</p>
-<p>:param packet: Network packet
-:type packet: scapy.packet.Packet</p></div>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>packet</code></strong> :&ensp;<code>scapy.packet.Packet</code></dt>
+<dd>Network packet.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -596,8 +610,8 @@ if __name__ == &#39;__main__&#39;:
     &#34;&#34;&#34;
     Perform signature-based detection on the packet.
 
-    :param packet: Network packet
-    :type packet: scapy.packet.Packet
+    Args:
+        packet (scapy.packet.Packet): Network packet.
     &#34;&#34;&#34;
     if packet.haslayer(TCP):
         if packet[TCP].dport == 22:  # Example: SSH connection detection
