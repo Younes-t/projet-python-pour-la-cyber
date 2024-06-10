@@ -21,7 +21,7 @@ def ssh_bruteforce(ip, port, username, password_list):
     return False
 
 if __name__ == '__main__':
-    target_ip = '192.168.1.19'  # Adresse IP cible
+    target_ip = '192.168.1.13'  # Adresse IP cible
     target_port = 22  # Port SSH
     target_username = 'els'  # Nom d'utilisateur SSH
 

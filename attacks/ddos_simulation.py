@@ -20,7 +20,7 @@ def ddos_attack(target_ip, target_port, duration):
     print(f"Attaque DDoS simulée : {packet_count} paquets envoyés en {duration} secondes")
 
 # Paramètres de la cible de l'attaque
-target_ip = "192.168.1.19"  # Remplacer par l'adresse IP de la cible
+target_ip = "192.168.1.13"  # Remplacer par l'adresse IP de la cible
 target_port = 80  # Remplacer par le port de la cible
 duration = 60  # Durée de l'attaque en secondes
 
