@@ -233,4 +233,4 @@ def main():
         print(f'IP {ip}: Nombre moyen de paquets par minute: {avg_packets:.2f}')
 
 if __name__ == '__main__':
-   
+    main()
