@@ -136,7 +136,7 @@ def check_and_alert():
                 if packet_counts[ip][current_minute - 1] > 100 and not alerts_triggered[ip]:
                     alert_message = (
                         f"L'IP {ip} a dépassé 100 paquets par minute avec "
-                        f"{packet_counts[ip][current_minute - 1]} paquets à la minute {current_minute - 1}."
+                        f"{packet_counts[ip][current_minute - 1]} paquets à la minute."
                     )
                     print(f'ALERTE: {alert_message}')
                     log_event(alert_message)
