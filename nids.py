@@ -66,7 +66,7 @@ def log_event(event):
 
 def signature_based_detection(packet): 
     if packet.haslayer(TCP):
-        if packet[TCP].dport == 22 and packet[TCP].flags == 'S':  # SSH connection attempt with SYN flag set
+        if packet[TCP].dport == 22 and packet[TCP].flags == 'S':  # SSH connection attempt with SYN flag set:  # SSH connection attempt with SYN flag set
             alert_message = f'Tentative de connexion SSH détectée depuis {packet[IP].src}'
             print(f'ALERTE: {alert_message}')
             log_event(alert_message)
@@ -115,12 +115,10 @@ def packet_handler(packet):
         with packet_counts_lock:
             packet_counts[src_ip][current_minute] += 1
         signature_based_detection(packet)
-        detect_syn_scan(packet) 
-
 # Vérifie périodiquement les comptes de paquets et déclenche des alertes si les seuils sont dépassés.
 def check_and_alert():
     while True:
-        time.sleep(30)  # Attendre une minute avant de vérifier
+        time.sleep(60)  # Attendre une minute avant de vérifier
         current_minute = int(time.time() // 60)
 
         with packet_counts_lock:
